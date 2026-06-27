@@ -15,7 +15,7 @@ const configureS3 = () => {
         });
         console.log("S3/MinIO client configured");
     } catch (error) {
-        console.warn(`S3 / MinIO not configured: ${error.message} `);
+        console.warn(`S3/MinIO not configured: ${error.message} `);
     }
 };
 

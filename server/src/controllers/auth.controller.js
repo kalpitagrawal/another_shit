@@ -6,79 +6,67 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { generateAccessAndRefreshTokens } from "../utils/generateTokens.js";
 import jwt from "jsonwebtoken";
 
-// Cookie options for tokens
-const cookieOptions = {
+// ─── Cookie Options ───────────────────────────────────────────────────────────
+const baseCookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-    // maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
-/**
- * Generate a unique handle from email prefix.
- * Appends random digits if handle already exists.
- */
-const generateUniqueHandle = async (email) => {
-    let handle = email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "");
-    if (handle.length < 3) handle = handle + "user";
+const accessCookieOptions = {
+    ...baseCookieOptions,
+    maxAge: 15 * 60 * 1000, // 15 min
+};
 
-    let uniqueHandle = handle;
-    let counter = 1;
-    while (await Channel.findOne({ handle: uniqueHandle })) {
-        uniqueHandle = `${handle}${Math.floor(Math.random() * 9000) + 1000}`;
-        counter++;
-        if (counter > 10) {
-            uniqueHandle = `${handle}${Date.now().toString().slice(-6)}`;
-            break;
-        }
-    }
-    return uniqueHandle;
+const refreshCookieOptions = {
+    ...baseCookieOptions,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
 // ─── REGISTER ────────────────────────────────────────────────────────────────
 export const register = asyncHandler(async (req, res) => {
-    const { email, password, displayName } = req.body;
+    const { email, password, handle, displayName } = req.body;
 
-    if (!email || !password) {
-        throw new ApiError(400, "Email and password are required");
+    if (!email || !password || !handle || !displayName) {
+        throw new ApiError(400, "Email, password, handle and displayName are required");
     }
 
-    // Check if user already exists
+    const HANDLE_REGEX = /^[a-z0-9_]+$/;
+    if (!HANDLE_REGEX.test(handle)) {
+        throw new ApiError(400, "Handle can only contain lowercase letters, numbers, and underscores");
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
         throw new ApiError(409, "An account with this email already exists");
     }
 
-    // Create user
-    const user = await User.create({
-        email,
-        password,
-    });
+    const existingHandle = await Channel.findOne({ handle });
+    if (existingHandle) {
+        throw new ApiError(409, "Handle already taken");
+    }
 
-    // Auto-create channel
-    const handle = await generateUniqueHandle(email);
+    const user = await User.create({ email, password });
+
     const channel = await Channel.create({
         owner: user._id,
         handle,
-        displayName: displayName || email.split("@")[0],
+        displayName: displayName.trim(),
     });
 
-    // Generate tokens
     const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user);
 
-    // Get user without sensitive fields
     const createdUser = await User.findById(user._id).select("-password -refreshTokens");
 
     return res
         .status(201)
-        .cookie("accessToken", accessToken, cookieOptions)
-        .cookie("refreshToken", refreshToken, cookieOptions)
+        .cookie("accessToken", accessToken, accessCookieOptions)
+        .cookie("refreshToken", refreshToken, refreshCookieOptions)
         .json(
             new ApiResponse(201, {
                 user: createdUser,
                 channel,
                 accessToken,
-                // refreshToken,
             }, "Registration successful")
         );
 });
@@ -108,14 +96,13 @@ export const login = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .cookie("accessToken", accessToken, cookieOptions)
-        .cookie("refreshToken", refreshToken, cookieOptions)
+        .cookie("accessToken", accessToken, accessCookieOptions)
+        .cookie("refreshToken", refreshToken, refreshCookieOptions)
         .json(
             new ApiResponse(200, {
                 user: loggedInUser,
                 channel,
                 accessToken,
-                // refreshToken,
             }, "Login successful")
         );
 });
@@ -125,7 +112,6 @@ export const logout = asyncHandler(async (req, res) => {
     const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
     if (refreshToken) {
-        // Remove this specific refresh token
         await User.findByIdAndUpdate(req.user._id, {
             $pull: { refreshTokens: { token: refreshToken } },
         });
@@ -133,8 +119,8 @@ export const logout = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .clearCookie("accessToken", cookieOptions)
-        .clearCookie("refreshToken", cookieOptions)
+        .clearCookie("accessToken", baseCookieOptions)
+        .clearCookie("refreshToken", baseCookieOptions)
         .json(new ApiResponse(200, {}, "Logged out successfully"));
 });
 
@@ -158,38 +144,33 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
             throw new ApiError(401, "Invalid refresh token");
         }
 
-        // Check if this refresh token exists in user's tokens
         const tokenExists = user.refreshTokens.some(
             (rt) => rt.token === incomingRefreshToken
         );
-
         if (!tokenExists) {
             throw new ApiError(401, "Refresh token expired or already used");
         }
 
-        // Remove the old refresh token (rotation)
+        // rotate — remove old, issue new
         user.refreshTokens = user.refreshTokens.filter(
             (rt) => rt.token !== incomingRefreshToken
         );
         await user.save({ validateBeforeSave: false });
 
-        // Generate new tokens
-        const { accessToken, refreshToken } =
-            await generateAccessAndRefreshTokens(user);
+        const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user);
 
         const loggedInUser = await User.findById(user._id).select("-password -refreshTokens");
         const channel = await Channel.findOne({ owner: user._id });
 
         return res
             .status(200)
-            .cookie("accessToken", accessToken, cookieOptions)
-            .cookie("refreshToken", refreshToken, cookieOptions)
+            .cookie("accessToken", accessToken, accessCookieOptions)
+            .cookie("refreshToken", refreshToken, refreshCookieOptions)
             .json(
                 new ApiResponse(200, {
                     user: loggedInUser,
                     channel,
                     accessToken,
-                    // refreshToken,
                 }, "Token refreshed successfully")
             );
     } catch (error) {
@@ -212,18 +193,15 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
         );
 });
 
-// ─── GOOGLE OAUTH CALLBACK ──────────────────────────────────────────────────
+// ─── GOOGLE OAUTH CALLBACK ───────────────────────────────────────────────────
 export const googleCallback = asyncHandler(async (req, res) => {
-    // After passport authenticates, req.user is set
     const user = req.user;
 
-    const { accessToken, refreshToken } =
-        await generateAccessAndRefreshTokens(user);
+    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user);
 
-    // Redirect to client with tokens
     const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
     return res
-        .cookie("accessToken", accessToken, cookieOptions)
-        .cookie("refreshToken", refreshToken, cookieOptions)
+        .cookie("accessToken", accessToken, accessCookieOptions)
+        .cookie("refreshToken", refreshToken, refreshCookieOptions)
         .redirect(`${clientUrl}/?auth=success`);
 });

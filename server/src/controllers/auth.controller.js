@@ -1,4 +1,4 @@
-
+import { User } from "../models/User.model.js";
 import { Channel } from "../models/Channel.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -11,7 +11,7 @@ const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    // maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
 /**
@@ -72,13 +72,13 @@ export const register = asyncHandler(async (req, res) => {
     return res
         .status(201)
         .cookie("accessToken", accessToken, cookieOptions)
-        // .cookie("refreshToken", refreshToken, cookieOptions)
+        .cookie("refreshToken", refreshToken, cookieOptions)
         .json(
             new ApiResponse(201, {
                 user: createdUser,
                 channel,
                 accessToken,
-                refreshToken,
+                // refreshToken,
             }, "Registration successful")
         );
 });
@@ -109,13 +109,13 @@ export const login = asyncHandler(async (req, res) => {
     return res
         .status(200)
         .cookie("accessToken", accessToken, cookieOptions)
-        // .cookie("refreshToken", refreshToken, cookieOptions)
+        .cookie("refreshToken", refreshToken, cookieOptions)
         .json(
             new ApiResponse(200, {
                 user: loggedInUser,
                 channel,
                 accessToken,
-                refreshToken,
+                // refreshToken,
             }, "Login successful")
         );
 });
@@ -183,13 +183,13 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
         return res
             .status(200)
             .cookie("accessToken", accessToken, cookieOptions)
-            // .cookie("refreshToken", refreshToken, cookieOptions)
+            .cookie("refreshToken", refreshToken, cookieOptions)
             .json(
                 new ApiResponse(200, {
                     user: loggedInUser,
                     channel,
                     accessToken,
-                    refreshToken,
+                    // refreshToken,
                 }, "Token refreshed successfully")
             );
     } catch (error) {

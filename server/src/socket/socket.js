@@ -2,8 +2,8 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User.model.js";
 import { Channel } from "../models/Channel.model.js";
-import { ChatMessage } from "../models/ChatMessage.model.js";
-import { LiveStream } from "../models/LiveStream.model.js";
+// import { ChatMessage } from "../models/ChatMessage.model.js";
+// import { LiveStream } from "../models/LiveStream.model.js";
 import { redis } from "../config/redis.js";
 import { Subscription } from "../models/Subscription.model.js";
 

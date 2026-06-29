@@ -1,122 +1,70 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
+import AuthProvider from './features/auth/AuthProvider'
+import Auth from './pages/Auth'
+import useAuthStore from './store/authSlice'
 
-function App() {
-  const [count, setCount] = useState(0)
-
+function Home() {
+  const { channel, logout } = useAuthStore()
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    <div style={{ minHeight: '100vh', background: '#080808', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ fontSize: 24, fontWeight: 600 }}>⚡ Flux</div>
+      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
+        Welcome, <strong style={{ color: 'white' }}>{channel?.displayName}</strong> — @{channel?.handle}
+      </p>
+      <button
+        onClick={logout}
+        style={{ marginTop: 8, padding: '8px 20px', background: 'transparent', border: '0.5px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 13 }}
+      >
+        Sign out
+      </button>
+    </div>
   )
 }
 
-export default App
+function PageLoader() {
+  return (
+    <div style={{ minHeight: '100vh', background: '#080808', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 20, height: 20, border: '1.5px solid rgba(255,255,255,0.1)', borderTop: '1.5px solid white', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    </div>
+  )
+}
+
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, isLoading } = useAuthStore()
+  if (isLoading) return <PageLoader />
+  return isAuthenticated ? children : <Navigate to="/auth" replace />
+}
+
+function GuestRoute({ children }) {
+  const { isAuthenticated, isLoading } = useAuthStore()
+  if (isLoading) return <PageLoader />
+  return !isAuthenticated ? children : <Navigate to="/" replace />
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            style: {
+              background: '#1a1a1a',
+              color: '#fff',
+              border: '0.5px solid rgba(255,255,255,0.1)',
+              borderRadius: '10px',
+              fontSize: '13px',
+            },
+          }}
+        />
+        <Routes>
+          <Route path="/auth" element={<GuestRoute><Auth /></GuestRoute>} />
+          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  )
+}

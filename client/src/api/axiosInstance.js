@@ -19,7 +19,9 @@ axiosInstance.interceptors.response.use(
     async (error) => {
         const original = error.config
 
-        if (error.response?.status === 401 && !original._retry) {
+        const isRefreshCall = original?.url?.includes('/auth/refresh')
+
+        if (error.response?.status === 401 && !original._retry && !isRefreshCall) {
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     pendingQueue.push({ resolve, reject })

@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import passport from "./config/passport.js";
 
 const app = express();
 
@@ -27,6 +28,8 @@ app.use(
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(cookieParser());
+app.use(passport.initialize());
+
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 import authRouter from "./routes/auth.routes.js";
